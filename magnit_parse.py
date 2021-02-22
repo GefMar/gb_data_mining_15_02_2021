@@ -1,8 +1,26 @@
+import datetime as dt
 from pathlib import Path
 from urllib.parse import urljoin
 import requests
 import bs4
 import pymongo
+
+
+MONTHS = {
+    "янв": 1,
+    "фев": 2,
+    "мар": 3,
+    "апр": 4,
+    "май": 5,
+    "мая": 5,
+    "июн": 6,
+    "июл": 7,
+    "авг": 8,
+    "сен": 9,
+    "окт": 10,
+    "ноя": 11,
+    "дек": 12,
+}
 
 
 class MagnitParse:
@@ -28,17 +46,49 @@ class MagnitParse:
 
     def get_template(self):
         return {
-            "title": lambda a: a.find("div", attrs={"class": "card-sale__title"}).text,
+            "product_name": lambda a: a.find("div", attrs={"class": "card-sale__title"}).text,
             "url": lambda a: urljoin(self.start_url, a.attrs.get("href", "")),
             "promo_name": lambda a: a.find("div", attrs={"class": "card-sale__name"}).text,
+            "old_price": lambda a: float(
+                ".".join(
+                    itm for itm in a.find("div", attrs={"class": "label__price_old"}).text.split()
+                )
+            ),
+            "new_price": lambda a: float(
+                ".".join(
+                    itm for itm in a.find("div", attrs={"class": "label__price_new"}).text.split()
+                )
+            ),
+            "image_url": lambda a: urljoin(self.start_url, a.find("img").attrs.get("data-src")),
+            "date_from": lambda a: self.__get_date(
+                a.find("div", attrs={"class": "card-sale__date"}).text
+            )[0],
+            "date_to": lambda a: self.__get_date(
+                a.find("div", attrs={"class": "card-sale__date"}).text
+            )[1],
         }
+
+    def __get_date(self, date_string) -> list:
+        date_list = date_string.replace("с ", "", 1).replace("\n", "").split("до")
+        result = []
+        for date in date_list:
+            temp_date = date.split()
+            result.append(
+                dt.datetime(
+                    year=dt.datetime.now().year,
+                    day=int(temp_date[0]),
+                    month=MONTHS[temp_date[1][:3]],
+                )
+            )
+        # FIXME: Сделать корректную обработку смены года
+        return result
 
     def _parse(self, product_a) -> dict:
         data = {}
         for key, funk in self.get_template().items():
             try:
                 data[key] = funk(product_a)
-            except AttributeError:
+            except (AttributeError, ValueError):
                 pass
         return data
 
