@@ -41,6 +41,7 @@ class GbBlogParse:
             "post_data": {
                 "title": soup.find("h1", attrs={"class": "blogpost-title"}).text,
                 "url": url,
+                "id": soup.find("comments").attrs.get("commentable-id"),
             },
             "author_data": {
                 "url": urljoin(url, author_tag.parent.attrs.get("href")),
@@ -50,7 +51,14 @@ class GbBlogParse:
                 {"name": tag.text, "url": urljoin(url, tag.attrs.get("href"))}
                 for tag in soup.find_all("a", attrs={"class": "small"})
             ],
+            "comments_data": self._get_comments(soup.find("comments").attrs.get("commentable-id")),
         }
+        return data
+
+    def _get_comments(self, post_id):
+        api_path = f"/api/v2/comments?commentable_type=Post&commentable_id={post_id}&order=desc"
+        response = self._get_response(urljoin(self.start_url, api_path))
+        data = response.json()
         return data
 
     def parse_feed(self, url, soup):
@@ -79,10 +87,9 @@ class GbBlogParse:
         for task in self.tasks:
             task_result = task()
             if task_result:
-                self.save(task_result)
+                self.db.create_post(task_result)
 
     def save(self, data):
-        print(1)
         self.db.create_post(data)
 
 
