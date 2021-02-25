@@ -10,10 +10,6 @@ class GbBlogParseAsync:
     def __init__(self, start_url):
         self.start_url = start_url
         self.done_urls = set()
-        self.tasks = [
-            self.get_task(self.start_url, self.parse_feed),
-        ]
-        self.done_urls.add(self.start_url)
 
     def get_task(self, url, callback):
         async def task():
